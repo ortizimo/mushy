@@ -1,0 +1,156 @@
+#!/bin/bash
+# title:	mushy
+# author: 	Saulo Sal Ortiz
+# date: 	2022.05.04
+# update: 	2026.06.16
+# version: 	2.7
+# desc:	single and multi-file hashing script
+
+# not realy needed
+alias myscript="mushy.sh"
+
+# --------------
+# hex code chart
+# --------------
+# 32 	= fuchsia
+# 33 	= yellow
+# 5 	= blink
+# 3 	= italic
+# 1	= bold
+# 0	= regular
+
+#-----------
+# User intro
+#-----------
+echo ""
+echo -e "\033[1;33mMUSHY! v2.7\033[0m"
+echo -e "\033[3mSingle and Multi-File Hasher\033[0m"
+echo ""
+
+
+#-------------------
+# Declared Variables
+#-------------------
+TARGET_FILE=${1}
+
+
+#-------------
+# Script Usage
+#-------------
+if [ -z ${1} ]
+then
+	echo "Usage: mushy <filename> || mushy *"
+	echo -e "\033[1;1mOptions after usage command: \033[0m"
+	echo "	s ----- SINGLE file hashing"
+	echo "	e ----- ENTIRE directory hashing"
+	echo "	q ----- QUICK hash report"
+	echo "	x ----- EXTENDED hash report"
+	exit 1
+fi
+
+
+#-------------------
+# Enter a valid file
+#-------------------
+if [ ! -e ${1} ] 	#for file and dir
+then
+	echo -e "\033[1;1m(${1})\033[0m is not a valid file...please use a valid file!"
+	exit 1
+fi
+
+# -----------------------------------
+# Ask if the file is a PE file or not
+#------------------------------------
+while true; do
+	read -p "Is this a PE file (y) or not (n)? (y/n) " yn
+	case $yn in
+		[Yy]* ) break;; # no tools from here
+		[Nn]* )
+			echo "MD5: $(md5sum ${1})";
+			echo "SHA256: $(sha256sum ${1})"; 
+			echo ""; exit 1;;
+	esac
+done
+
+#----------------------------------------
+# Checks for old output first
+#----------------------------------------
+while true; do
+	read -p "Do you want to do a SINGLE FILE or the ENTIRE DIRECTORY? (s/d) " sd
+	case $sd in
+		[Ss]* ) break;; # dont use tools here!
+		[Dd]* )
+	# remove any old output file
+			if [ -f mushyOutput.txt ]; then
+				echo -e "\033[1;33mPrevious mushyOutput file found! Deleting now!\033[0m"
+				echo -e "\033[1;33;3m(None PE files will report errors!)\033[0m\n"
+				sleep 2
+				rm -f mushyOutput.txt
+			else
+				echo -e "\033[1;33mNo PREVIOUS mushyOutput file found...continuing!\033[0m"
+				echo -e "\033[1;33;3m(None PE files will report errors!\033[0m\n"
+				sleep 2
+			fi;
+#------------------------------------------------------------------
+	# process full directory
+			for file in *; do
+			if [ -f "$file" ]; then
+				echo "Processing: '$file'...please wait!"
+				peframe "$file" | grep 'filename\|filesize\|imphash' | column -t -s ' ' >> mushyOutput.txt;
+				pehash "$file" | grep 'md5\|sha1' | column -t -s ' ' >> mushyOutput.txt;
+				file "$file" | grep ":" | cut -d: -f2- >> mushyOutput.txt;
+			# remove blank space | remove the strings | show this string and 1 line below it
+				trid "$file" | grep '\S' | grep -vi 'analyzing\|definitions\|trid\|collecting' >> mushyOutput.txt;
+				peframe "$file" | grep "Packer" -C 2 >> mushyOutput.txt;
+				echo -e "\033[1;33m----------------------------------------------\033[0m" >> mushyOutput.txt;
+			fi
+			done
+			echo -e "\033[1;33mDetails also in the 'mushyOutput' file!\033[0m\n"
+			echo -e "\033[1;33mReport Below!\033[0m"
+			cat mushyOutput.txt
+		exit 1;; # termination
+	esac
+done
+
+#------------------------------
+# SINGLE file/QUICK hashing
+#------------------------------
+while true; do
+        read -p "Do you want to do a QUICK or an EXTENDED hash report? (q/x) " qx
+        case $qx in
+                [Qq]* )
+			echo ""
+			echo -e "\033[1;33mQUICK HASH REPORT...please wait!\033[0m"
+			echo "----------------------------------------------------------"
+			peframe ${1} | grep 'filename\|imphash' | column -t -s ' ';
+			pehash ${1} | grep 'sha256\|md5' | column -t -s ' ';
+			echo -e "\n\033[1;33mFILE POSSIBLY IS:\033[0m";
+			file ${1} | grep ":" | cut -d: -f2-;
+			trid ${1} | grep '\S' | grep -vi 'analyzing\|definitions\|trid\|collecting' -A 1; exit 1;;
+                [Xx]* ) break;;	# dont use tools here!
+        esac
+done
+
+
+#---------------------------------------
+# LONG hash w/anti-debug and output
+#---------------------------------------
+#
+echo ""
+echo -e "\033[1;33mEXTENDED HASH REPORT...please wait!\033[0m"
+echo "-------------------------------------------------------------"
+peframe ${1} | grep "filename\|filetype\|filesize\|sha256\|imphash\|datetime\|features"
+peframe ${1} | grep "Anti Debug" -A 10 -B 2
+echo ""
+echo -e "\033[1;3mTHIS IS NOT A COMPLETE ANTI-DEBUG LIST JUST A PREVIEW!\033[0m"
+echo -e "\033[1;3mUse PEFRAME to get more anti-debug details!\033[0m"
+echo -e "------------------------------------------------------------\n"
+malutil-entropycalc ${1} | grep "Entropy" -A 5 -B 3
+peframe ${1} | grep "Packer" -C 2
+
+#---------------
+# Audible alert
+#---------------
+paplay /usr/share/sounds/freedesktop/stereo/complete.oga
+espeak "I am MUSHY"
+espeak "You are welcome"
